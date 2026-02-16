@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+vendor/
+composer.phar
+
+# Runtime files
+.seeded
+logs/*.log
+
+# Installer-generated DB credentials (contains passwords)
+api/db_config.php
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
