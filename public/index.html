@@ -12,5 +12,61 @@
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f172a;font-family:system-ui,sans-serif">
+        <div style="background:#1e293b;padding:2.5rem;border-radius:12px;max-width:400px;width:100%;text-align:center">
+          <h1 style="color:#f1f5f9">BOSS Cloaker</h1>
+          <p style="color:#94a3b8">JavaScript is required to use this panel.</p>
+        </div>
+      </div>
+    </noscript>
+    <script>
+      (function() {
+        var _fetch = window.fetch;
+        var authFailed = false;
+
+        window.fetch = function(url, opts) {
+          var urlStr = typeof url === 'string' ? url : (url && url.url ? url.url : '');
+
+          return _fetch.apply(this, arguments)
+            .then(function(response) {
+              if (response.status === 401 && urlStr.indexOf('/api/auth/me') !== -1) {
+                authFailed = true;
+                showFallback('Session expired. Please log in again.', '/login', 'Go to Login');
+              }
+              if (response.status === 401 && urlStr.indexOf('/api/') !== -1 && urlStr.indexOf('/api/auth/login') === -1) {
+                authFailed = true;
+              }
+              return response;
+            })
+            .catch(function(err) {
+              if (urlStr.indexOf('/api/') !== -1) {
+                showFallback('Cannot connect to server. Please check your connection.', '', 'Retry', true);
+              }
+              throw err;
+            });
+        };
+
+        function showFallback(message, href, btnText, isRetry) {
+          setTimeout(function() {
+            var root = document.getElementById('root');
+            if (!root || root.children.length > 1) return;
+            var text = (root.innerText || '').trim();
+            if (root.children.length === 1 && text.length > 100) return;
+
+            var action = isRetry
+              ? '<button onclick="location.reload()" style="display:inline-block;padding:0.75rem 2rem;background:#3b82f6;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:1rem">' + btnText + '</button>'
+              : '<a href="' + href + '" style="display:inline-block;padding:0.75rem 2rem;background:#3b82f6;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">' + btnText + '</a>';
+
+            root.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f172a;font-family:system-ui,sans-serif">' +
+              '<div style="background:#1e293b;padding:2.5rem;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.3);max-width:400px;width:100%;text-align:center">' +
+              '<h1 style="color:#f1f5f9;margin:0 0 0.5rem;font-size:1.5rem">BOSS Cloaker</h1>' +
+              '<p style="color:#94a3b8;margin:0 0 1.5rem">' + message + '</p>' +
+              action +
+              '</div></div>';
+          }, 2500);
+        }
+      })();
+    </script>
   </body>
 </html>

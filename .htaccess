@@ -1,13 +1,15 @@
 # ============================================
 # BOSS Cloaker - Apache .htaccess
-# Plesk Compatible Configuration
+# Plesk Compatible Configuration (Apache 2.4+)
 # ============================================
 
 # Enable rewrite engine
 RewriteEngine On
 
-# Force HTTPS (recommended for Plesk)
+# Force HTTPS (enable on production Plesk servers)
+# Works with both direct HTTPS and behind Nginx proxy
 # RewriteCond %{HTTPS} off
+# RewriteCond %{HTTP:X-Forwarded-Proto} !https
 # RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
 # Security headers
@@ -16,7 +18,6 @@ RewriteEngine On
     Header set X-Frame-Options "SAMEORIGIN"
     Header set X-XSS-Protection "1; mode=block"
     Header set Referrer-Policy "no-referrer-when-downgrade"
-    # Remove server signature
     Header unset X-Powered-By
     Header unset Server
 </IfModule>
@@ -24,21 +25,34 @@ RewriteEngine On
 # Disable directory listing
 Options -Indexes
 
-# Protect sensitive files
-<FilesMatch "\.(env|sql|md|json|lock|log)$">
-    Order Allow,Deny
-    Deny from all
+# Protect sensitive files (Apache 2.4+ syntax with 2.2 fallback)
+<FilesMatch "\.(env|sql|md|lock|log|gitignore)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order Allow,Deny
+        Deny from all
+    </IfModule>
 </FilesMatch>
 
-# Protect config files
-<FilesMatch "^(config\.php|storage\.php|schema\.sql)$">
-    Order Allow,Deny
-    Deny from all
+# Protect config and internal PHP files from direct access
+<FilesMatch "^(config\.php|db_config\.php|storage\.php|schema\.sql|test_.*\.php)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order Allow,Deny
+        Deny from all
+    </IfModule>
 </FilesMatch>
 
-# Protect api directory from direct access (except through rewrite)
-RewriteCond %{REQUEST_URI} ^/api/(config|storage|lib/) [NC]
+# Protect api internal directories from direct access
+RewriteCond %{REQUEST_URI} ^/api/(config|db_config|storage|lib/) [NC]
 RewriteRule .* - [F,L]
+
+# Protect logs directory
+RewriteRule ^logs/ - [F,L]
 
 # ============================================
 # MAIN ROUTING RULES
@@ -57,7 +71,7 @@ RewriteRule ^r/([a-zA-Z0-9]+)$ api/index.php [L,QSA]
 # Route all /api/* requests to PHP router
 RewriteRule ^api/(.*)$ api/index.php [L,QSA]
 
-# SPA fallback - route everything else to the PHP router (which serves index.html)
+# SPA fallback - route everything else to the PHP router
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ api/index.php [L,QSA]
@@ -66,14 +80,12 @@ RewriteRule ^ api/index.php [L,QSA]
 # PERFORMANCE
 # ============================================
 
-# Enable compression
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css
     AddOutputFilterByType DEFLATE application/javascript application/json
     AddOutputFilterByType DEFLATE image/svg+xml
 </IfModule>
 
-# Cache static assets
 <IfModule mod_expires.c>
     ExpiresActive On
     ExpiresByType text/css "access plus 1 year"
@@ -88,11 +100,31 @@ RewriteRule ^ api/index.php [L,QSA]
     ExpiresByType application/font-woff2 "access plus 1 year"
 </IfModule>
 
-# PHP Settings (if allowed by server)
+# PHP Settings — mod_php
 <IfModule mod_php.c>
     php_value upload_max_filesize 10M
     php_value post_max_size 10M
     php_value max_execution_time 30
     php_value session.cookie_httponly 1
+    php_value session.cookie_path /
     php_value session.use_strict_mode 1
+    php_value session.use_only_cookies 1
+    php_value session.gc_maxlifetime 86400
+</IfModule>
+
+# PHP Settings — PHP 8.x mod_php (Plesk)
+<IfModule mod_php8.c>
+    php_value upload_max_filesize 10M
+    php_value post_max_size 10M
+    php_value max_execution_time 30
+    php_value session.cookie_httponly 1
+    php_value session.cookie_path /
+    php_value session.use_strict_mode 1
+    php_value session.use_only_cookies 1
+    php_value session.gc_maxlifetime 86400
+</IfModule>
+
+# Pass proxy headers for HTTPS detection (Plesk Nginx → Apache)
+<IfModule mod_setenvif.c>
+    SetEnvIf X-Forwarded-Proto "https" HTTPS=on
 </IfModule>

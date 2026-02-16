@@ -35,18 +35,22 @@ $method = $_SERVER['REQUEST_METHOD'];
 $storage = getStorage();
 
 // ============================================
-// SEED DATA ON FIRST RUN
+// SEED DATA ON FIRST RUN (file-gated to avoid DB queries every request)
 // ============================================
-try {
-    $storage->seedData();
-} catch (Exception $e) {
-    // Seeding errors are non-fatal
-    error_log("Seeding error: " . $e->getMessage());
+$seedLock = __DIR__ . '/../.seeded';
+if (!file_exists($seedLock)) {
+    try {
+        $storage->seedData();
+        @file_put_contents($seedLock, date('c'));
+    } catch (Exception $e) {
+        error_log("Seeding error: " . $e->getMessage());
+    }
 }
 
 // ============================================
-// ROUTING
+// ROUTING (wrapped in try/catch for production safety)
 // ============================================
+try {
 
 // --- AUTH ROUTES ---
 if ($path === '/api/auth/login' && $method === 'POST') {
@@ -280,9 +284,27 @@ if (preg_match('#^/api/settings/(.+)$#', $path, $matches)) {
     }
 }
 
+// --- UNMATCHED API ROUTE ---
+if (strpos($path, '/api/') === 0) {
+    jsonResponse(['message' => 'Not found'], 404);
+}
+
 // --- SERVE FRONTEND (SPA fallback) ---
 // If no API route matched, serve the frontend
 serveFrontend($path);
+
+} catch (Throwable $e) {
+    // Global error handler — never expose stack traces in production
+    error_log('BOSS Cloaker error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    if (strpos($path ?? '', '/api/') === 0) {
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'Internal server error']);
+    } else {
+        http_response_code(500);
+        echo '<!DOCTYPE html><html><body><h1>Server Error</h1><p>An unexpected error occurred.</p></body></html>';
+    }
+}
 
 // ============================================
 // CLOAKER ENGINE HANDLER
