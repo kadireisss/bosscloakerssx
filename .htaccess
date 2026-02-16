@@ -94,5 +94,12 @@ RewriteRule ^ api/index.php [L,QSA]
     php_value post_max_size 10M
     php_value max_execution_time 30
     php_value session.cookie_httponly 1
+    php_value session.cookie_path /
     php_value session.use_strict_mode 1
+    php_value session.use_only_cookies 1
+</IfModule>
+
+# Pass proxy headers for HTTPS detection
+<IfModule mod_setenvif.c>
+    SetEnvIf X-Forwarded-Proto "https" HTTPS=on
 </IfModule>
