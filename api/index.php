@@ -8,9 +8,11 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/storage.php';
 require_once __DIR__ . '/lib/detector.php';
 
-// Start session
-session_name('boss_session');
-session_start();
+// Start session with explicit cookie params (configured in config.php)
+if (session_status() === PHP_SESSION_NONE) {
+    session_name('boss_session');
+    session_start();
+}
 
 // Set CORS headers
 setCorsHeaders();
@@ -67,9 +69,13 @@ if ($path === '/api/auth/login' && $method === 'POST') {
         jsonResponse(['message' => 'Geçersiz kullanıcı adı veya şifre'], 401);
     }
     
+    // Regenerate session ID on login to prevent session fixation attacks
+    session_regenerate_id(true);
+    
     // Store user in session
     $_SESSION['user_id'] = $user['id'];
     $_SESSION['username'] = $user['username'];
+    $_SESSION['login_time'] = time();
     
     unset($user['password']);
     jsonResponse(formatDomainRow($user));

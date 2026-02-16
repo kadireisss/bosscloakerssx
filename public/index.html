@@ -12,5 +12,31 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Auth resilience: intercept fetch to handle 401 gracefully
+      (function() {
+        var _fetch = window.fetch;
+        window.fetch = function(url, opts) {
+          return _fetch.apply(this, arguments).then(function(response) {
+            // If /api/auth/me returns 401, the user is not logged in
+            if (response.status === 401 && typeof url === 'string' && url.indexOf('/api/auth/me') !== -1) {
+              // Wait briefly for the React app to handle it; if root is still empty, show fallback
+              setTimeout(function() {
+                var root = document.getElementById('root');
+                if (root && root.children.length === 0) {
+                  root.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#0f172a;font-family:system-ui,sans-serif">' +
+                    '<div style="background:#1e293b;padding:2.5rem;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.3);max-width:400px;width:100%;text-align:center">' +
+                    '<h1 style="color:#f1f5f9;margin:0 0 0.5rem">BOSS Cloaker</h1>' +
+                    '<p style="color:#94a3b8;margin:0 0 1.5rem">Session expired. Please log in again.</p>' +
+                    '<a href="/login" style="display:inline-block;padding:0.75rem 2rem;background:#3b82f6;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">Go to Login</a>' +
+                    '</div></div>';
+                }
+              }, 2000);
+            }
+            return response;
+          });
+        };
+      })();
+    </script>
   </body>
 </html>
