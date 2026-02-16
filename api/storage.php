@@ -66,20 +66,20 @@ class Storage {
             $slug,
             $data['targetUrl'] ?? $data['target_url'] ?? '',
             $data['landingPageId'] ?? $data['landing_page_id'] ?? null,
-            $data['redirectEnabled'] ?? $data['redirect_enabled'] ?? 1,
+            (int)($data['redirectEnabled'] ?? $data['redirect_enabled'] ?? 1),
             $data['detectionLevel'] ?? $data['detection_level'] ?? 'high',
             $data['status'] ?? 'active',
-            $data['blockDirectAccess'] ?? $data['block_direct_access'] ?? 0,
+            (int)($data['blockDirectAccess'] ?? $data['block_direct_access'] ?? 0),
             $data['blockedPlatforms'] ?? $data['blocked_platforms'] ?? 'google,facebook,bing,tiktok',
-            $data['jsChallenge'] ?? $data['js_challenge'] ?? 0,
+            (int)($data['jsChallenge'] ?? $data['js_challenge'] ?? 0),
             $data['redirectMode'] ?? $data['redirect_mode'] ?? '302',
             $data['activeHours'] ?? $data['active_hours'] ?? null,
             $data['activeDays'] ?? $data['active_days'] ?? null,
             $data['timezone'] ?? 'Europe/Istanbul',
-            $data['maxClicksPerIp'] ?? $data['max_clicks_per_ip'] ?? 0,
-            $data['rateLimitWindow'] ?? $data['rate_limit_window'] ?? 3600,
-            $data['allowMobile'] ?? $data['allow_mobile'] ?? 1,
-            $data['allowDesktop'] ?? $data['allow_desktop'] ?? 1,
+            (int)($data['maxClicksPerIp'] ?? $data['max_clicks_per_ip'] ?? 0),
+            (int)($data['rateLimitWindow'] ?? $data['rate_limit_window'] ?? 3600),
+            (int)($data['allowMobile'] ?? $data['allow_mobile'] ?? 1),
+            (int)($data['allowDesktop'] ?? $data['allow_desktop'] ?? 1),
         ]);
         return $this->getDomain((int)$this->db->lastInsertId());
     }
@@ -252,11 +252,16 @@ class Storage {
         $patterns = $this->db->query('SELECT pattern FROM user_agent_blacklist')->fetchAll();
         foreach ($patterns as $entry) {
             $pattern = $entry['pattern'];
-            // Try regex first
-            if (@preg_match('/' . $pattern . '/i', $userAgent)) {
-                return true;
+            // Check if pattern is a valid regex (starts with / or #)
+            if (preg_match('/^[\/#]/', $pattern)) {
+                // It's a regex pattern, use it directly
+                $result = @preg_match($pattern . 'i', $userAgent);
+                if ($result === 1) {
+                    return true;
+                }
+                // If regex is invalid, fall through to string matching
             }
-            // Fallback to simple includes
+            // Fallback to simple substring matching
             if (stripos($userAgent, $pattern) !== false) {
                 return true;
             }

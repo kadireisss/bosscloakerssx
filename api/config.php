@@ -9,14 +9,16 @@ error_reporting(E_ALL);
 ini_set('display_errors', '0');
 ini_set('log_errors', '1');
 
-// Session configuration
-ini_set('session.cookie_httponly', '1');
-// cookie_secure should only be enabled for HTTPS
-if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
-    ini_set('session.cookie_secure', '1');
+// Session configuration (only set if headers not yet sent)
+if (!headers_sent()) {
+    @ini_set('session.cookie_httponly', '1');
+    // cookie_secure should only be enabled for HTTPS
+    if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
+        @ini_set('session.cookie_secure', '1');
+    }
+    @ini_set('session.use_strict_mode', '1');
+    @ini_set('session.cookie_samesite', 'Lax');
 }
-ini_set('session.use_strict_mode', '1');
-ini_set('session.cookie_samesite', 'Lax');
 
 // Timezone
 date_default_timezone_set('Europe/Istanbul');
@@ -44,10 +46,29 @@ define('APP_VERSION', '2.0-php');
 function getDB(): PDO {
     static $pdo = null;
     if ($pdo === null) {
-        $dsn = sprintf(
-            'mysql:host=%s;port=%s;dbname=%s;charset=%s',
-            DB_HOST, DB_PORT, DB_NAME, DB_CHARSET
-        );
+        // Use 127.0.0.1 instead of localhost to avoid socket issues
+        $host = DB_HOST === 'localhost' ? '127.0.0.1' : DB_HOST;
+        
+        // If using localhost/127.0.0.1, add unix_socket if available
+        if ($host === '127.0.0.1' || $host === 'localhost') {
+            $socketPath = '/var/run/mysqld/mysqld.sock';
+            if (file_exists($socketPath)) {
+                $dsn = sprintf(
+                    'mysql:unix_socket=%s;dbname=%s;charset=%s',
+                    $socketPath, DB_NAME, DB_CHARSET
+                );
+            } else {
+                $dsn = sprintf(
+                    'mysql:host=%s;port=%s;dbname=%s;charset=%s',
+                    $host, DB_PORT, DB_NAME, DB_CHARSET
+                );
+            }
+        } else {
+            $dsn = sprintf(
+                'mysql:host=%s;port=%s;dbname=%s;charset=%s',
+                $host, DB_PORT, DB_NAME, DB_CHARSET
+            );
+        }
         $options = [
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,

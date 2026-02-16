@@ -311,7 +311,7 @@ function isIPv6InCidr(string $ip, string $cidr): bool {
     $mask = str_repeat('f', intdiv($prefix, 4));
     $remainder = $prefix % 4;
     if ($remainder > 0) {
-        $mask .= dechex(0xf << (4 - $remainder) & 0xf);
+        $mask .= dechex((0xf << (4 - $remainder)) & 0xf);
     }
     $mask = str_pad($mask, 32, '0');
     $maskBin = pack('H*', $mask);
